@@ -77,9 +77,9 @@ Saved automatically (Tampermonkey storage, shared by all the sites); they apply 
 | International (EN) | www.autodoc.parts | EUR |
 | Brazil | www.autopecas.br.com | BRL |
 
-The list (`SITES` at the top of the script: country, host, currency) is the only thing to edit to add or drop a site. The `@match` and `@connect` header lines must list the same hosts (Tampermonkey requires it); `node test.js` checks that.
+The list (`SITES` at the top of the script: country, host, currency) is the only thing to edit to add or drop a site. The `@match` and `@connect` header lines must list the same hosts, plus `api.frankfurter.dev` for the exchange rates (Tampermonkey requires it); `node test.js` checks that.
 
-**Currencies.** Prices are shown in each site's own currency and are **never converted**: the script calls no exchange-rate service. Totals, differences and the green "cheapest" highlight only compare columns in the same currency (all euro sites together, the two Swiss sites together, ...). A column in another currency than this site's shows its own total with no difference to this site. A country where an article has no price is left out of the totals of every column in that currency, so the columns stay comparable (hover "n/a" for the reason).
+**Currencies.** Each column keeps showing the site's own price. For columns in another currency than this site's, the price is also converted to this site's currency (shown as "≈ …") so totals, differences and the green "cheapest" highlight work across all countries. Rates come from [Frankfurter](https://frankfurter.dev) (ECB reference rates, one call for all currencies), fetched at most **once a day** and cached for 24 hours in Tampermonkey storage; the popup states the rate date. They are approximate: each shop charges in its own currency, and card or bank fees are not included. The rates are only requested when a comparison involves more than one currency. If they cannot be fetched, the cached ones are used even if older (the popup says so); with no cache at all nothing is converted: only columns in the same currency are compared (all euro sites together, the two Swiss sites together, ...) and a column in another currency than this site's shows its own total with no difference to this site. A country where an article has no price is left out of the totals of every column compared with it, so the columns stay comparable (hover "n/a" for the reason).
 
 ## Updates
 
@@ -111,7 +111,7 @@ The header has `@version`, `@updateURL` and `@downloadURL` pointing at this repo
 node test.js
 ```
 
-Runs assert-based checks of the pure functions (price parser, host swap, settings, transfer target, comparison across several countries and currencies, request pool) and that the header `@match`/`@connect` lists match `SITES`. The userscript exports them only when loaded by Node (`typeof module !== 'undefined'`); in the browser it runs normally.
+Runs assert-based checks of the pure functions (price parser, host swap, settings, transfer target, exchange-rate parsing, comparison across several countries and currencies with and without rates, request pool) and that the header `@match`/`@connect` lists match `SITES` (plus the rates host). The userscript exports them only when loaded by Node (`typeof module !== 'undefined'`); in the browser it runs normally.
 
 ## Disclaimer
 
@@ -119,7 +119,7 @@ This project is **not affiliated with, endorsed by, or connected to Autodoc** (A
 
 ## Privacy
 
-The script stores in Tampermonkey storage on your machine: your settings, and, while a transfer is pending, a short-lived copy of your cart (article ids, quantities, displayed prices, product paths). It sends no data anywhere except to the Autodoc sites listed in the script (the product pages it reads for the countries you ticked, and the cart requests the sites' own code would make). No exchange-rate service, no analytics, no third-party servers.
+The script stores in Tampermonkey storage on your machine: your settings, the cached exchange rates, and, while a transfer is pending, a short-lived copy of your cart (article ids, quantities, displayed prices, product paths). It sends no data anywhere except to the Autodoc sites listed in the script (the product pages it reads for the countries you ticked, and the cart requests the sites' own code would make) and, at most once a day and only when a comparison involves a non-euro currency, to the [Frankfurter](https://frankfurter.dev) exchange-rate API (`api.frankfurter.dev`). That request carries no cart data, only the list of currencies; like any web request it reveals your IP address to that server. No analytics, no other third-party servers.
 
 ## License
 

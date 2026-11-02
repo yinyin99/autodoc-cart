@@ -1,7 +1,7 @@
 // Run: node test.js
 const assert = require('assert');
 const fs = require('fs');
-const { SITES, DEFAULTS, parsePrice, siteOf, swapHost, loadSettings, transferTarget, compareTable, pool } = require('./autodoc-cart.user.js');
+const { SITES, DEFAULTS, RATES_HOST, RATES_URL, parsePrice, siteOf, swapHost, loadSettings, transferTarget, parseRates, compareTable, pool } = require('./autodoc-cart.user.js');
 
 // parsePrice: European formats incl. the site's "27, 99 €" quirk, other currencies
 assert.strictEqual(parsePrice('1 234,56 €'), 1234.56);
@@ -33,7 +33,9 @@ assert.ok(SITES.every((s) => /^www\.[a-z0-9.-]+$/.test(s.host) && /^[A-Z]{3}$/.t
 const header = fs.readFileSync(__dirname + '/autodoc-cart.user.js', 'utf8').split('==/UserScript==')[0];
 const tag = (name) => [...header.matchAll(new RegExp(`@${name}\\s+(\\S+)`, 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(tag('match'), SITES.map((s) => `https://${s.host}/*`));
-assert.deepStrictEqual(tag('connect'), SITES.map((s) => s.host));
+assert.deepStrictEqual(tag('connect'), [...SITES.map((s) => s.host), RATES_HOST]); // the shops + the exchange-rate API
+assert.strictEqual(new URL(RATES_URL).hostname, RATES_HOST);
+assert.deepStrictEqual(new URL(RATES_URL).searchParams.get('quotes').split(',').sort(), [...new Set(SITES.map((s) => s.cur))].filter((c) => c !== 'EUR').sort());
 
 // swapHost: any supported site to any other, path/query kept, unknown host rejected both ways
 assert.strictEqual(swapHost('https://www.auto-doc.fr/ridex/16152230', 'www.autodoc.lu'), 'https://www.autodoc.lu/ridex/16152230');
@@ -82,6 +84,42 @@ assert.deepStrictEqual(u.map((c) => c.best), [false, false, true]);
 assert.ok(u.slice(1).every((c) => isNaN(c.totalDiff)));
 // equal totals: nothing highlighted
 assert.ok(compareTable([{ qty: 1 }], [{ host: 'a', cur: 'EUR', prices: [5] }, { host: 'b', cur: 'EUR', prices: [5] }]).every((c) => !c.best));
+
+// parseRates: Frankfurter v2 rows; oldest date kept; anything unexpected throws
+assert.deepStrictEqual(parseRates([{ date: '2026-11-02', base: 'EUR', quote: 'CHF', rate: 0.92 }, { date: '2026-10-30', base: 'EUR', quote: 'GBP', rate: 0.83 }]),
+  { date: '2026-10-30', rates: { CHF: 0.92, GBP: 0.83 } });
+for (const bad of [null, {}, [], [{ date: 'd', base: 'USD', quote: 'CHF', rate: 1 }], [{ date: 'd', base: 'EUR', quote: 'CHF', rate: 0 }]])
+  assert.throws(() => parseRates(bad), /unexpected rates response/);
+
+// compareTable with rates (units per 1 EUR): every column converted to this site's currency, native prices kept
+const fx = { CHF: 0.5, GBP: 0.8 };
+const e1 = compareTable([{ qty: 1 }, { qty: 2 }], [
+  { host: 'fr', cur: 'EUR', prices: [10, 20] }, { host: 'ch', cur: 'CHF', prices: [4, 12] }, { host: 'uk', cur: 'GBP', prices: [8, 8] },
+], fx);
+assert.deepStrictEqual(e1.map((c) => c.tcur), ['EUR', 'EUR', 'EUR']);
+assert.deepStrictEqual(e1[1].prices, [4, 12]); // native price untouched
+assert.deepStrictEqual(e1[1].conv, [8, 24]);
+assert.deepStrictEqual(e1.map((c) => c.total), [50, 56, 30]);
+assert.deepStrictEqual(e1.map((c) => c.best), [false, false, true]); // cheapest across currencies
+assert.deepStrictEqual(e1.map((c) => c.totalDiff), [0, 6, -20]);
+assert.deepStrictEqual(e1[1].diffs, [-2, 4]);
+// this site non-EUR: EUR->X and X->Y (via EUR) both work
+const e2 = compareTable([{ qty: 1 }], [{ host: 'ch', cur: 'CHF', prices: [10] }, { host: 'fr', cur: 'EUR', prices: [4] }, { host: 'uk', cur: 'GBP', prices: [4] }], fx);
+assert.deepStrictEqual(e2.map((c) => c.tcur), ['CHF', 'CHF', 'CHF']);
+assert.deepStrictEqual(e2.map((c) => c.total), [10, 2, 2.5]);
+assert.deepStrictEqual(e2.map((c) => c.best), [false, true, false]);
+assert.deepStrictEqual(e2.map((c) => c.totalDiff), [0, -8, -7.5]);
+// a currency without a rate stays in its own group, as without rates
+const e3 = compareTable([{ qty: 1 }], [{ host: 'fr', cur: 'EUR', prices: [10] }, { host: 'ch', cur: 'CHF', prices: [4] }, { host: 'hu', cur: 'HUF', prices: [3000] }], { CHF: 0.5 });
+assert.deepStrictEqual(e3.map((c) => c.tcur), ['EUR', 'EUR', 'HUF']);
+assert.ok(isNaN(e3[2].totalDiff) && e3[2].best === false);
+// rates missing => exactly the old behaviour (own-currency groups, no diffs across currencies)
+const cols0 = [{ host: 'fr', cur: 'EUR', prices: [10] }, { host: 'ch', cur: 'CHF', prices: [4] }];
+for (const none of [undefined, {}]) {
+  const n = compareTable([{ qty: 1 }], cols0, none);
+  assert.deepStrictEqual(n.map((c) => [c.tcur, c.total, c.best]), [['EUR', 10, false], ['CHF', 4, false]]);
+  assert.ok(isNaN(n[1].totalDiff) && isNaN(n[1].diffs[0]));
+}
 
 // pool: never more than n in flight, results in input order despite out-of-order completion; no new call once the signal aborts
 (async () => {

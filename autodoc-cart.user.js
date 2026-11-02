@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.3
+// @version      0.2.4
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -80,6 +80,7 @@
 // @connect      www.autodoc.lt
 // @connect      www.autodoc.parts
 // @connect      www.autopecas.br.com
+// @connect      api.frankfurter.dev
 // @downloadURL  https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js
 // @updateURL    https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js
 // ==/UserScript==
@@ -89,7 +90,7 @@
 
   // ---- Everything site-specific lives in this block ------------------------
   // The only place to add/remove a country. Keep the @match / @connect header lines in sync (test.js checks it).
-  // cur = currency the site shows; prices in different currencies are never converted or added up.
+  // cur = currency the site shows; compareTable converts to this site's currency with exchange rates when it has them.
   const SITES = [
     { country: 'Germany', host: 'www.autodoc.de', cur: 'EUR' },
     { country: 'Austria', host: 'www.auto-doc.at', cur: 'EUR' },
@@ -153,6 +154,10 @@
   const QUEUE_TTL = 15 * 60e3;
   const ADD_TIMEOUT = 60e3; // the site's fetch waits for Cloudflare Turnstile before sending
   const PARALLEL = 4; // max price-comparison reads in flight at once (cart adds stay sequential)
+  const RATES = 'adcs_rates';
+  const RATES_TTL = 24 * 3600e3; // exchange rates are fetched at most once a day
+  const RATES_HOST = 'api.frankfurter.dev'; // Frankfurter: ECB reference rates, per 1 EUR; one call returns every currency of SITES
+  const RATES_URL = `https://${RATES_HOST}/v2/rates?base=EUR&quotes=${[...new Set(SITES.map((s) => s.cur))].filter((c) => c !== 'EUR').join(',')}`;
 
   // ---- Pure helpers (unit-tested in test.js) -------------------------------
   // "1 234,56 €", "27, 99 €" (the site really renders a space after the comma), "22.49", "1.234,56", "CHF 1’234.50".
@@ -192,22 +197,33 @@
     return to === host ? null : to;
   };
 
+  // Frankfurter v2 rows [{date, base, quote, rate}] -> {date (oldest row), rates: {CUR: units per 1 EUR}}.
+  const parseRates = (rows) => {
+    if (!Array.isArray(rows) || !rows.length || !rows.every((r) => r.base === 'EUR' && r.rate > 0)) throw new Error('unexpected rates response');
+    return { date: rows.map((r) => r.date).sort()[0], rates: Object.fromEntries(rows.map((r) => [r.quote, r.rate])) };
+  };
+
   // items: [{qty}]; cols: [{host, cur, prices}], cols[0] = this site; prices[i] = unit price of cart line i (NaN = unknown).
-  // No exchange rates: a column's total only covers the lines priced on every column with the same currency,
-  // so same-currency columns stay comparable and different currencies are never mixed. best = cheapest total
-  // of a currency group with 2+ columns; diffs/totalDiff are vs cols[0], same currency only (else NaN).
-  const compareTable = (items, cols) => {
+  // rates (optional): {CUR: units per 1 EUR}. A column whose currency and cols[0]'s both have a rate (EUR = 1) is converted to
+  // cols[0]'s currency (conv, tcur) and compared with all such columns. Without rates, or for a currency missing in them, a column
+  // stays in its own currency and only same-currency columns are compared. A column's total only covers the lines priced on
+  // every column of its group. best = cheapest total of a group with 2+ columns; diffs/totalDiff are vs cols[0], same group only (else NaN).
+  const compareTable = (items, cols, rates) => {
     const r2 = (n) => Math.round(n * 100) / 100;
+    const rate = (cur) => (cur === 'EUR' ? 1 : rates?.[cur]);
+    const tcur = (c) => (rate(c.cur) && rate(cols[0].cur) ? cols[0].cur : c.cur);
     const out = cols.map((c) => {
-      const peers = cols.filter((o) => o.cur === c.cur);
+      const g = tcur(c), f = g === c.cur ? 1 : rate(g) / rate(c.cur);
+      const conv = c.prices.map((p) => p * f);
+      const peers = cols.filter((o) => tcur(o) === g);
       const used = items.map((_, i) => peers.every((p) => !isNaN(p.prices[i])));
-      const total = r2(items.reduce((s, it, i) => s + (used[i] ? it.qty * c.prices[i] : 0), 0));
-      return { ...c, used, total, diffs: c.prices.map((p, i) => (c.cur === cols[0].cur ? p - cols[0].prices[i] : NaN)) };
+      const total = r2(items.reduce((s, it, i) => s + (used[i] ? it.qty * conv[i] : 0), 0));
+      return { ...c, tcur: g, conv, used, total, diffs: conv.map((p, i) => (g === cols[0].cur ? p - cols[0].prices[i] : NaN)) };
     });
     for (const c of out) {
-      const t = out.filter((o) => o.cur === c.cur).map((o) => o.total);
+      const t = out.filter((o) => o.tcur === c.tcur).map((o) => o.total);
       c.best = c.total === Math.min(...t) && Math.min(...t) < Math.max(...t);
-      c.totalDiff = c.cur === out[0].cur ? r2(c.total - out[0].total) : NaN;
+      c.totalDiff = c.tcur === out[0].tcur ? r2(c.total - out[0].total) : NaN;
     }
     return out;
   };
@@ -222,7 +238,7 @@
   };
 
   if (typeof module !== 'undefined') {
-    module.exports = { SITES, DEFAULTS, parsePrice, siteOf, swapHost, loadSettings, transferTarget, compareTable, pool };
+    module.exports = { SITES, DEFAULTS, RATES_HOST, RATES_URL, parsePrice, siteOf, swapHost, loadSettings, transferTarget, parseRates, compareTable, pool };
     return;
   }
 
@@ -417,6 +433,19 @@
     return p;
   };
 
+  // Cached for 24 h in GM storage. A failed refresh falls back to the stale cache (or nothing); never throws.
+  const getRates = async (signal) => {
+    const c = GM_getValue(RATES);
+    if (c && Date.now() - c.t < RATES_TTL) return c;
+    try {
+      const r = await gmGet(RATES_URL, signal);
+      if (r.status !== 200) throw new Error('HTTP ' + r.status);
+      const fresh = { t: Date.now(), ...parseRates(JSON.parse(r.responseText)) };
+      GM_setValue(RATES, fresh);
+      return fresh;
+    } catch { return c && { ...c, stale: true }; }
+  };
+
   const compare = async () => {
     const here = siteOf(location.hostname), items = scrapeCart();
     const others = SITES.filter((x) => settings().compare.includes(x.host) && x.host !== here.host);
@@ -428,26 +457,31 @@
     const prices = others.map(() => []), e = others.map(() => []);
     let done = 0;
     overlay('Compare prices', `Fetching 0/${jobs.length}…`, run);
+    // Rates only matter when the columns have different currencies; started now so it runs alongside the price reads.
+    const ratesP = new Set([here, ...others].map((s) => s.cur)).size > 1 ? getRates(run.signal) : null;
     await pool(jobs, PARALLEL, async ({ it, i, k, host }) => {
       try { prices[k][i] = await otherPrice(it, host, run.signal); e[k][i] = ''; } catch (err) { prices[k][i] = NaN; e[k][i] = err.message; }
       overlay('Compare prices', `Fetched ${++done}/${jobs.length}…`, run);
     }, run.signal);
     const cols = [{ ...here, prices: items.map((it) => it.price) }, ...others.map((o, k) => ({ ...o, prices: prices[k] }))];
     const errs = [[], ...e];
-    const t = compareTable(items, cols);
+    const fx = await ratesP;
+    const t = compareTable(items, cols, fx?.rates);
     const sign = (d, cur) => (isNaN(d) ? '' : `<br><small style="${d < 0 ? 'color:#0a7d2c' : d > 0 ? 'color:#b00020' : ''}">${d > 0 ? '+' : ''}${money(d, cur)}</small>`);
     const td = (extra = '') => `style="padding:2px 8px;text-align:right;${extra}"`;
     const rows = items.map((it, i) =>
       `<tr><td style="padding:2px 8px">${esc(it.name)}</td><td ${td()}>${it.qty}</td>` +
-      t.map((c, k) => `<td ${td()} title="${esc(errs[k][i])}">${money(c.prices[i], c.cur)}${k ? sign(c.diffs[i], c.cur) : ''}</td>`).join('') + '</tr>').join('');
-    const mixed = t.some((c) => c.cur !== t[0].cur), short = t.some((c) => c.used.includes(false));
+      t.map((c, k) => `<td ${td()} title="${esc(errs[k][i])}">${money(c.prices[i], c.cur)}` +
+        `${c.tcur !== c.cur && !isNaN(c.conv[i]) ? `<br><small>≈ ${money(c.conv[i], c.tcur)}</small>` : ''}${k ? sign(c.diffs[i], c.tcur) : ''}</td>`).join('') + '</tr>').join('');
+    const converted = t.some((c) => c.tcur !== c.cur), mixed = t.some((c) => c.tcur !== t[0].tcur), short = t.some((c) => c.used.includes(false));
     overlay('Compare prices (unit prices, VAT included)',
       '<table><tr><th>Article</th><th>Qty</th>' +
       t.map((c) => `<th title="${esc(c.host)}">${esc(c.country)}<br><small>${c.cur}</small></th>`).join('') + '</tr>' + rows +
-      `<tr><td><b>Total</b></td><td></td>${t.map((c, k) => `<td ${td(c.best ? 'background:#d8f5de;' : '')}><b>${money(c.total, c.cur)}</b>${k ? sign(c.totalDiff, c.cur) : ''}</td>`).join('')}</tr></table>` +
-      '<p><small>Green background = cheapest total among the columns in the same currency.</small></p>' +
-      (short ? '<p>Articles without a price on a country are left out of the totals of every column in that currency (hover "n/a" for the reason).</p>' : '') +
-      (mixed ? '<p><small>Columns in different currencies are not converted or compared: no exchange rate is used.</small></p>' : '') +
+      `<tr><td><b>Total</b></td><td></td>${t.map((c, k) => `<td ${td(c.best ? 'background:#d8f5de;' : '')}><b>${c.tcur !== c.cur ? '≈ ' : ''}${money(c.total, c.tcur)}</b>${k ? sign(c.totalDiff, c.tcur) : ''}</td>`).join('')}</tr></table>` +
+      '<p><small>Green background = cheapest total among the columns that can be compared.</small></p>' +
+      (short ? '<p>Articles without a price on a country are left out of the totals of every column compared with it (hover "n/a" for the reason).</p>' : '') +
+      (converted ? `<p><small>≈ = converted to ${t[0].cur}. Rates: Frankfurter (ECB), ${esc(fx.date)}${fx.stale ? ' (could not refresh, cached rates used)' : ''}. Approximate: each shop charges in its own currency.</small></p>` : '') +
+      (mixed ? '<p><small>Columns in another currency are not converted or compared: exchange rates unavailable.</small></p>' : '') +
       '<p><small>Item prices only. Shipping and VAT rules differ per country and are not included.</small></p>', run);
   };
 
