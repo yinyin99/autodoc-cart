@@ -1,3 +1,5 @@
+\[Back to the README\](../README.md)
+
 # Publishing anonymously on GitHub
 
 Goal: publish this repo without tying it to your real name, email, machine or browser profile.
@@ -35,7 +37,7 @@ Also make sure your git does not sign commits with a key tied to your real name 
 
 ## 4. Audit the files before the first commit
 
-The repo should contain only: `autodoc-cart.user.js`, `test.js`, `README.md`, `LICENSE`, `PUBLISHING.md`, `.gitignore`.
+The repo should contain only: `autodoc-cart.user.js`, `test.js`, `README.md`, `LICENSE`, `.gitignore`, `.github/` and `docs/` (with its screenshots).
 
 Search for leaks (run from the project folder):
 
