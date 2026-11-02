@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.4
+// @version      0.2.5
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -279,13 +279,27 @@
   const overlay = (title, html, run) => {
     if (run?.signal.aborted) return;
     if (!run) cmp?.abort(); // any other popup replaces the comparison's
-    const o = document.getElementById('adcs-overlay')?.style;
-    const keep = o?.width ? `width:${o.width};height:${o.height};top:${o.top};left:${o.left};` : ''; // inline size = the user resized it: keep size and place
+    const prev = document.getElementById('adcs-overlay'), o = prev?.style;
+    const keep = o?.width || prev?.dataset.moved ? (o.width ? `width:${o.width};height:${o.height};` : '') + `top:${o.top};left:${o.left};` : ''; // inline size = resized, data-moved = dragged: keep place (and size)
     // top/left, no transform: the resize handle then follows the mouse. Sticky header keeps × reachable while scrolling.
     const el = put('adcs-overlay', 'top:0;left:0;box-sizing:border-box;padding:0;overflow:auto;resize:both;min-height:80px;min-width:min(280px,calc(100vw - 16px));' +
       `max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);${keep}`,
-      '<div style="position:sticky;top:0;left:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #ddd">' +
+      '<div data-adcs="drag" style="cursor:move;touch-action:none;position:sticky;top:0;left:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #ddd">' +
       `<b>${esc(title)}</b><button data-adcs="close">×</button></div><div style="padding:8px 12px 12px">${html}</div>`);
+    // Handlers on the persistent window (not the header, which each update replaces) so a drag survives progress updates.
+    el.onpointerdown = (e) => {
+      if (!e.target.closest('[data-adcs=drag]') || e.target.closest('button')) return;
+      el.drag = { x: e.clientX - el.offsetLeft, y: e.clientY - el.offsetTop };
+      el.setPointerCapture(e.pointerId);
+    };
+    el.onpointermove = (e) => {
+      const d = el.drag;
+      if (!d) return;
+      el.dataset.moved = 1;
+      el.style.left = Math.min(Math.max(0, e.clientX - d.x), Math.max(0, innerWidth - el.offsetWidth)) + 'px'; // clamp: whole window stays in view
+      el.style.top = Math.min(Math.max(0, e.clientY - d.y), Math.max(0, innerHeight - el.offsetHeight)) + 'px';
+    };
+    el.onpointerup = el.onpointercancel = () => { el.drag = null; };
     // shortcut: centered when the content changes, not when the window is resized.
     if (!keep) { el.style.left = Math.max(8, (innerWidth - el.offsetWidth) / 2) + 'px'; el.style.top = Math.max(8, (innerHeight - el.offsetHeight) / 2) + 'px'; }
   };

@@ -23,7 +23,7 @@ No build step, no dependencies: one `.user.js` file.
 2. **Transfer cart**: a new tab opens on the target site at the product page of your first article. The script (optionally empties that site's cart, then) adds each article through the site's own add-to-cart request, shows progress, lists anything that could not be added, then opens the cart.
 3. **Compare prices**: the script reads each product page on the enabled countries, 4 requests at a time (a progress counter is shown) and shows a table: one column per country (this site first), unit price per article with the difference to this site, and totals. The cheapest total gets a green background. Closing the popup (×) while it is still fetching cancels the comparison: running requests are aborted and no new ones start; clicking **Compare prices** again restarts it.
 
-The popup can be resized by dragging its bottom-right corner, fits small screens (the table scrolls inside it) and keeps its title bar with the × button visible while you scroll.
+Popups can be moved by dragging their title bar and resized by dragging the bottom-right corner; they fit small screens (the table scrolls inside them) and keep its title bar with the × button visible while you scroll.
 
 ## Settings
 
