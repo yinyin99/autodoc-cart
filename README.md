@@ -111,7 +111,9 @@ The header has `@version`, `@updateURL` and `@downloadURL` pointing at this repo
 node test.js
 ```
 
-Runs assert-based checks of the pure functions (price parser, host swap, settings, transfer target, exchange-rate parsing, comparison across several countries and currencies with and without rates, request pool) and that the header `@match`/`@connect` lists match `SITES` (plus the rates host). The userscript exports them only when loaded by Node (`typeof module !== 'undefined'`); in the browser it runs normally.
+Runs assert-based checks of the pure functions (price parser, host swap, settings, transfer target, exchange-rate parsing, comparison across several countries and currencies with and without rates, request pool) and of the userscript header: `@match`/`@connect` match `SITES` (plus the rates host), `@version` is semver, `@downloadURL`/`@updateURL` point at `main`, and the `@grant` list equals what the code uses. The userscript exports the helpers only when loaded by Node (`typeof module !== 'undefined'`); in the browser it runs normally.
+
+CI (`.github/workflows/test.yml`) runs `node --check autodoc-cart.user.js` and `node test.js` on every push and pull request.
 
 ## Disclaimer
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.5
+// @version      0.2.6
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -186,7 +186,7 @@
     return {
       target: known(r.target, DEFAULTS.target),
       home: known(r.home, DEFAULTS.home),
-      compare: (Array.isArray(r.compare) ? r.compare : DEFAULTS.compare).filter((h) => siteOf(h)),
+      compare: [...new Set(Array.isArray(r.compare) ? r.compare : DEFAULTS.compare)].filter((h) => siteOf(h)), // a duplicate would fetch and show a column twice
       clear: !!r.clear,
     };
   };
