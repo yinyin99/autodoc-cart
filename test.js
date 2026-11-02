@@ -18,6 +18,9 @@ assert.strictEqual(parsePrice('CHF 1’234.50'), 1234.5);
 assert.strictEqual(parsePrice("CHF 1'234.50"), 1234.5);
 assert.strictEqual(parsePrice('R$ 1.234,56'), 1234.56);
 assert.strictEqual(parsePrice('12 345 Ft'), 12345);
+for (const [s, n] of [['58, 49 €', 58.49], ['€ 64, 99', 64.99], ['€55. 49', 55.49], ['CHF 60. 49', 60.49], ['£52. 49', 52.49],
+  ['577, 99 kr.', 577.99], ['693, 99 kr', 693.99], ['282, 99 zł', 282.99], ['1502, 00 Kč', 1502], ['23 009 Ft', 23009],
+  ['332, 99 lei', 332.99], ['R$426, 75', 426.75]]) assert.strictEqual(parsePrice(s), n, s);
 assert.strictEqual(parsePrice('249,00 zł'), 249);
 assert.ok(isNaN(parsePrice('')));
 assert.ok(isNaN(parsePrice('n/a')));
