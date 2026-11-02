@@ -12,8 +12,8 @@ No build step, no dependencies: one `.user.js` file.
 ## Install
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/) (Chrome, Edge, Brave, Opera; Firefox is untested, see Limitations).
-2. Open the raw file and click **Install**:
-   `https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js`
+2. Click [**Install**](https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js), then click **Install** in the Tampermonkey page that opens:
+   [`https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js`](https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js)
 3. Tampermonkey asks to allow cross-site requests to `www.auto-doc.fr` and `www.autodoc.lu`. Allow them (needed for the price comparison).
 
 ## Usage
