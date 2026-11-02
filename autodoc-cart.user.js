@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart (.fr <-> .lu)
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.1.0
+// @version      0.1.1
 // @author       yinyin99
 // @description  Rebuild your auto-doc.fr cart on autodoc.lu (and back) and compare item prices.
 // @license      MIT
