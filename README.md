@@ -68,7 +68,7 @@ The list (`SITES` at the top of the script: country, host, currency) is the only
 node test.js
 ```
 
-Runs assert-based checks of the pure functions (price parser, host swap, settings, transfer target, comparison across several countries and currencies) and that the header `@match`/`@connect` lists match `SITES`. The userscript exports them only when loaded by Node (`typeof module !== 'undefined'`); in the browser it runs normally.
+Runs assert-based checks of the pure functions (price parser, host swap, settings, transfer target, comparison across several countries and currencies, request pool) and that the header `@match`/`@connect` lists match `SITES`. The userscript exports them only when loaded by Node (`typeof module !== 'undefined'`); in the browser it runs normally.
 
 ## Disclaimer
 

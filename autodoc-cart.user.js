@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.0
+// @version      0.2.1
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -152,6 +152,7 @@
   const SETTINGS = 'adcs_settings';
   const QUEUE_TTL = 15 * 60e3;
   const ADD_TIMEOUT = 60e3; // the site's fetch waits for Cloudflare Turnstile before sending
+  const PARALLEL = 4; // max price-comparison reads in flight at once (cart adds stay sequential)
 
   // ---- Pure helpers (unit-tested in test.js) -------------------------------
   // "1 234,56 €", "27, 99 €" (the site really renders a space after the comma), "22.49", "1.234,56", "CHF 1’234.50".
@@ -211,8 +212,17 @@
     return out;
   };
 
+  // Runs fn over items with at most n calls in flight; results keep item order.
+  const pool = async (items, n, fn) => {
+    const out = new Array(items.length);
+    let next = 0;
+    const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } };
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+    return out;
+  };
+
   if (typeof module !== 'undefined') {
-    module.exports = { SITES, DEFAULTS, parsePrice, siteOf, swapHost, loadSettings, transferTarget, compareTable };
+    module.exports = { SITES, DEFAULTS, parsePrice, siteOf, swapHost, loadSettings, transferTarget, compareTable, pool };
     return;
   }
 
@@ -349,6 +359,7 @@
       }
     }
     const failed = [];
+    // Sequential on purpose: parallel cart updates race server-side and silently drop articles (seen live).
     for (const [i, it] of q.items.entries()) {
       overlay('Rebuilding cart', `Adding ${i + 1}/${q.items.length}: ${esc(it.name)} × ${it.qty}…`);
       try { await addToCart(it); } catch (e) { failed.push(`${esc(it.name)} (${esc(e.message)})`); }
@@ -384,15 +395,17 @@
     const here = siteOf(location.hostname), items = scrapeCart();
     const others = SITES.filter((x) => settings().compare.includes(x.host) && x.host !== here.host);
     if (!others.length) return overlay('Compare prices', 'Tick at least one other country in Settings.');
-    const cols = [{ ...here, prices: items.map((it) => it.price) }], errs = [[]];
-    for (const o of others) {
-      const prices = [], e = [];
-      for (const [i, it] of items.entries()) {
-        overlay('Compare prices', `${esc(o.country)} (${cols.length}/${others.length}): article ${i + 1}/${items.length}…`);
-        try { prices.push(await otherPrice(it, o.host)); e.push(''); } catch (err) { prices.push(NaN); e.push(err.message); }
-      }
-      cols.push({ ...o, prices }); errs.push(e);
-    }
+    // One flat job list so up to PARALLEL reads run at once across all countries.
+    const jobs = others.flatMap((o, k) => items.map((it, i) => ({ it, i, k, host: o.host })));
+    const prices = others.map(() => []), e = others.map(() => []);
+    let done = 0;
+    overlay('Compare prices', `Fetching 0/${jobs.length}…`);
+    await pool(jobs, PARALLEL, async ({ it, i, k, host }) => {
+      try { prices[k][i] = await otherPrice(it, host); e[k][i] = ''; } catch (err) { prices[k][i] = NaN; e[k][i] = err.message; }
+      overlay('Compare prices', `Fetched ${++done}/${jobs.length}…`);
+    });
+    const cols = [{ ...here, prices: items.map((it) => it.price) }, ...others.map((o, k) => ({ ...o, prices: prices[k] }))];
+    const errs = [[], ...e];
     const t = compareTable(items, cols);
     const sign = (d, cur) => (isNaN(d) ? '' : `<br><small style="${d < 0 ? 'color:#0a7d2c' : d > 0 ? 'color:#b00020' : ''}">${d > 0 ? '+' : ''}${money(d, cur)}</small>`);
     const td = (extra = '') => `style="padding:2px 8px;text-align:right;${extra}"`;

@@ -1,7 +1,7 @@
 // Run: node test.js
 const assert = require('assert');
 const fs = require('fs');
-const { SITES, DEFAULTS, parsePrice, siteOf, swapHost, loadSettings, transferTarget, compareTable } = require('./autodoc-cart.user.js');
+const { SITES, DEFAULTS, parsePrice, siteOf, swapHost, loadSettings, transferTarget, compareTable, pool } = require('./autodoc-cart.user.js');
 
 // parsePrice: European formats incl. the site's "27, 99 €" quirk, other currencies
 assert.strictEqual(parsePrice('1 234,56 €'), 1234.56);
@@ -83,4 +83,17 @@ assert.ok(u.slice(1).every((c) => isNaN(c.totalDiff)));
 // equal totals: nothing highlighted
 assert.ok(compareTable([{ qty: 1 }], [{ host: 'a', cur: 'EUR', prices: [5] }, { host: 'b', cur: 'EUR', prices: [5] }]).every((c) => !c.best));
 
-console.log('all checks passed');
+// pool: never more than n in flight, results in input order despite out-of-order completion
+(async () => {
+  let live = 0, peak = 0;
+  const out = await pool([30, 5, 20, 1, 10, 2], 4, async (ms, i) => {
+    peak = Math.max(peak, ++live);
+    await new Promise((r) => setTimeout(r, ms));
+    live--;
+    return i;
+  });
+  assert.deepStrictEqual(out, [0, 1, 2, 3, 4, 5]);
+  assert.strictEqual(peak, 4);
+  assert.deepStrictEqual(await pool([], 4, async () => 1), []);
+  console.log('all checks passed');
+})();
