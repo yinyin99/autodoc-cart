@@ -47,10 +47,10 @@ assert.throws(() => swapHost('https://www.autodoc.lu/x', 'example.com'), /unsupp
 
 // loadSettings: defaults, valid stored values kept, unknown hosts dropped/replaced
 assert.deepStrictEqual(loadSettings(undefined), DEFAULTS);
-assert.deepStrictEqual(DEFAULTS, { target: 'www.autodoc.lu', home: 'www.auto-doc.fr', compare: ['www.auto-doc.fr', 'www.autodoc.lu'], clear: true });
+assert.deepStrictEqual(DEFAULTS, { target: 'www.autodoc.lu', home: 'www.auto-doc.fr', compare: ['www.auto-doc.fr', 'www.autodoc.lu'], clear: true, resize: false });
 assert.ok(siteOf(DEFAULTS.target) && siteOf(DEFAULTS.home) && DEFAULTS.compare.every(siteOf));
-const s1 = loadSettings({ target: 'www.autodoc.de', compare: ['www.autodoc.de', 'gone.example', 'www.autodoc.co.uk'], clear: false });
-assert.deepStrictEqual(s1, { target: 'www.autodoc.de', home: 'www.auto-doc.fr', compare: ['www.autodoc.de', 'www.autodoc.co.uk'], clear: false });
+const s1 = loadSettings({ target: 'www.autodoc.de', compare: ['www.autodoc.de', 'gone.example', 'www.autodoc.co.uk'], clear: false, resize: 1 });
+assert.deepStrictEqual(s1, { target: 'www.autodoc.de', home: 'www.auto-doc.fr', compare: ['www.autodoc.de', 'www.autodoc.co.uk'], clear: false, resize: true });
 assert.strictEqual(loadSettings({ target: 'gone.example', home: 'gone.example' }).target, DEFAULTS.target);
 assert.deepStrictEqual(loadSettings({ compare: 'nope' }).compare, DEFAULTS.compare);
 assert.deepStrictEqual(loadSettings({ compare: [] }).compare, []);
@@ -138,8 +138,8 @@ assert.throws(() => swapHost('/relative/path', 'www.autodoc.lu'));
 
 // loadSettings with corrupted storage: never throws, always valid
 for (const bad of [null, 'garbage', 42, [], true]) assert.deepStrictEqual(loadSettings(bad), DEFAULTS, String(bad));
-const wrong = loadSettings({ target: 5, home: {}, compare: [1, null, {}, 'www.autodoc.de'], clear: 0 });
-assert.deepStrictEqual(wrong, { target: DEFAULTS.target, home: DEFAULTS.home, compare: ['www.autodoc.de'], clear: false });
+const wrong = loadSettings({ target: 5, home: {}, compare: [1, null, {}, 'www.autodoc.de'], clear: 0, resize: 'yes' });
+assert.deepStrictEqual(wrong, { target: DEFAULTS.target, home: DEFAULTS.home, compare: ['www.autodoc.de'], clear: false, resize: true });
 assert.strictEqual(loadSettings({ target: ['www.autodoc.de'] }).target, DEFAULTS.target); // an array is not a host
 assert.deepStrictEqual(loadSettings({ compare: ['www.autodoc.de', 'www.autodoc.lu', 'www.autodoc.de'] }).compare, ['www.autodoc.de', 'www.autodoc.lu']); // no duplicate columns
 assert.notStrictEqual(loadSettings({}).compare, DEFAULTS.compare); // callers may mutate the result

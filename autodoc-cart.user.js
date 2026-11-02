@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.6
+// @version      0.2.7
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -132,6 +132,7 @@
     home: 'www.auto-doc.fr', // where it goes instead when you are already on the target site
     compare: ['www.auto-doc.fr', 'www.autodoc.lu'], // few countries by default: every one costs one request per article
     clear: true, // empty the target cart before adding (the target cart is the one being rebuilt)
+    resize: false, // let the user resize popups by dragging their corner
   };
   const CART_PATH = /^\/basket(\.html)?\/?$/;
   // Same-origin POST the site's own "Buy" button uses. Quantity is ADDED to the cart,
@@ -188,6 +189,7 @@
       home: known(r.home, DEFAULTS.home),
       compare: [...new Set(Array.isArray(r.compare) ? r.compare : DEFAULTS.compare)].filter((h) => siteOf(h)), // a duplicate would fetch and show a column twice
       clear: !!r.clear,
+      resize: !!r.resize,
     };
   };
 
@@ -280,9 +282,10 @@
     if (run?.signal.aborted) return;
     if (!run) cmp?.abort(); // any other popup replaces the comparison's
     const prev = document.getElementById('adcs-overlay'), o = prev?.style;
-    const keep = o?.width || prev?.dataset.moved ? (o.width ? `width:${o.width};height:${o.height};` : '') + `top:${o.top};left:${o.left};` : ''; // inline size = resized, data-moved = dragged: keep place (and size)
+    const resize = settings().resize;
+    const keep = o?.width || prev?.dataset.moved ? (o.width && resize ? `width:${o.width};height:${o.height};` : '') + `top:${o.top};left:${o.left};` : ''; // inline size = resized (kept only while resizing is on), data-moved = dragged: keep place
     // top/left, no transform: the resize handle then follows the mouse. Sticky header keeps × reachable while scrolling.
-    const el = put('adcs-overlay', 'top:0;left:0;box-sizing:border-box;padding:0;overflow:auto;resize:both;min-height:80px;min-width:min(280px,calc(100vw - 16px));' +
+    const el = put('adcs-overlay', `top:0;left:0;box-sizing:border-box;padding:0;overflow:auto;resize:${resize ? 'both' : 'none'};min-height:80px;min-width:min(280px,calc(100vw - 16px));` +
       `max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);${keep}`,
       '<div data-adcs="drag" style="cursor:move;touch-action:none;position:sticky;top:0;left:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #ddd">' +
       `<b>${esc(title)}</b><button data-adcs="close">×</button></div><div style="padding:8px 12px 12px">${html}</div>`);
@@ -324,6 +327,7 @@
       `<p><label>Transfer cart to <select name="target">${options(s.target)}</select></label></p>` +
       `<p><label>When already on that site, transfer to <select name="home">${options(s.home)}</select></label></p>` +
       `<p><label><input type="checkbox" name="clear"${s.clear ? ' checked' : ''}> Empty the target cart before adding (deletes what is in it)</label></p>` +
+      `<p><label><input type="checkbox" name="resize"${s.resize ? ' checked' : ''}> Resizable windows (drag the bottom-right corner)</label></p>` +
       '<p>Compare prices with <small>(one request per article and country)</small>: ' +
       '<button type="button" data-adcs="selectAll">Select all</button> <button type="button" data-adcs="deselectAll">Deselect all</button></p>' +
       '<div style="max-height:35vh;overflow:auto">' +
@@ -337,8 +341,11 @@
       target: f.elements.target.value,
       home: f.elements.home.value,
       clear: f.elements.clear.checked,
+      resize: f.elements.resize.checked,
       compare: [...f.querySelectorAll('input[name=compare]:checked')].map((i) => i.value),
     }));
+    const o = document.getElementById('adcs-overlay')?.style;
+    if (o) { o.resize = f.elements.resize.checked ? 'both' : 'none'; if (!f.elements.resize.checked) o.width = o.height = ''; }
     bar();
   });
 

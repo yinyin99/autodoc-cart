@@ -23,7 +23,7 @@ No build step, no dependencies: one `.user.js` file.
 2. **Transfer cart**: a new tab opens on the target site at the product page of your first article. The script (optionally empties that site's cart, then) adds each article through the site's own add-to-cart request, shows progress, lists anything that could not be added, then opens the cart.
 3. **Compare prices**: the script reads each product page on the enabled countries, 4 requests at a time (a progress counter is shown) and shows a table: one column per country (this site first), unit price per article with the difference to this site, and totals. The cheapest total gets a green background. Closing the popup (×) while it is still fetching cancels the comparison: running requests are aborted and no new ones start; clicking **Compare prices** again restarts it.
 
-Popups can be moved by dragging their title bar and resized by dragging the bottom-right corner; they fit small screens (the table scrolls inside them) and keep its title bar with the × button visible while you scroll.
+Popups can be moved by dragging their title bar and, when **Resizable windows** is enabled in Settings, resized by dragging the bottom-right corner; they fit small screens (the table scrolls inside them) and keep their title bar with the × button visible while you scroll.
 
 ## Settings
 
@@ -35,6 +35,7 @@ Saved automatically (Tampermonkey storage, shared by all the sites); they apply 
 | When already on that site, transfer to | France (`www.auto-doc.fr`) | Where the transfer goes from the target site itself, so the same button also works the other way round. If it equals the site you are on, the button explains what to change. |
 | Empty the target cart before adding | **on** | The target site's cart is emptied (all its articles are removed) before the articles are added, so the target ends up as an exact copy. Turn it **off** to add on top of what is already there. |
 | Compare prices with | France + Luxembourg | Every ticked country costs one request per cart article, so only two are on by default. This site is always shown first, whether ticked or not. The **Select all** / **Deselect all** buttons above the list tick or untick every country at once. |
+| Resizable windows | off | Lets you resize popups by dragging their bottom-right corner. Applies immediately; turning it off also drops any size you had set. Moving by the title bar always works. |
 
 **Empty the target cart is on by default**: the target cart is the one being rebuilt, but whatever is in it when you press Transfer is deleted, not just overwritten. Only the articles are removed (coupons, "Commande Sécurisée" and addresses are left alone). If emptying fails, the transfer stops and adds nothing; the cart may then be partly emptied.
 
