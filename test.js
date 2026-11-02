@@ -83,7 +83,7 @@ assert.ok(u.slice(1).every((c) => isNaN(c.totalDiff)));
 // equal totals: nothing highlighted
 assert.ok(compareTable([{ qty: 1 }], [{ host: 'a', cur: 'EUR', prices: [5] }, { host: 'b', cur: 'EUR', prices: [5] }]).every((c) => !c.best));
 
-// pool: never more than n in flight, results in input order despite out-of-order completion
+// pool: never more than n in flight, results in input order despite out-of-order completion; no new call once the signal aborts
 (async () => {
   let live = 0, peak = 0;
   const out = await pool([30, 5, 20, 1, 10, 2], 4, async (ms, i) => {
@@ -95,5 +95,12 @@ assert.ok(compareTable([{ qty: 1 }], [{ host: 'a', cur: 'EUR', prices: [5] }, { 
   assert.deepStrictEqual(out, [0, 1, 2, 3, 4, 5]);
   assert.strictEqual(peak, 4);
   assert.deepStrictEqual(await pool([], 4, async () => 1), []);
+  let started = 0;
+  const ac = new AbortController();
+  await pool([1, 2, 3, 4, 5, 6, 7, 8], 2, async () => { if (++started === 2) ac.abort(); await new Promise((r) => setTimeout(r, 5)); }, ac.signal);
+  assert.strictEqual(started, 2); // the two in flight finish, nothing else starts
+  started = 0;
+  await pool([1, 2, 3], 2, async () => { started++; }, ac.signal);
+  assert.strictEqual(started, 0); // already aborted
   console.log('all checks passed');
 })();

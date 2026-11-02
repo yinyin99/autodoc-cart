@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.2
+// @version      0.2.3
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -212,11 +212,11 @@
     return out;
   };
 
-  // Runs fn over items with at most n calls in flight; results keep item order.
-  const pool = async (items, n, fn) => {
+  // Runs fn over items with at most n calls in flight; results keep item order. Once `signal` (AbortSignal) aborts, no new call starts.
+  const pool = async (items, n, fn, signal) => {
     const out = new Array(items.length);
     let next = 0;
-    const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } };
+    const worker = async () => { while (next < items.length && !signal?.aborted) { const i = next++; out[i] = await fn(items[i], i); } };
     await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
     return out;
   };
@@ -256,10 +256,23 @@
     if (!el) { el = document.body.appendChild(document.createElement('div')); el.id = id; }
     el.style.cssText = BOX + style;
     el.innerHTML = html;
+    return el;
   };
-  const overlay = (title, html) =>
-    put('adcs-overlay', 'top:50%;left:50%;transform:translate(-50%,-50%);max-width:90vw;max-height:80vh;overflow:auto;min-width:280px;',
-      `<b>${esc(title)}</b> <button data-adcs="close" style="float:right">×</button><div style="margin-top:8px">${html}</div>`);
+  let cmp; // AbortController of the comparison in progress; closing or replacing its popup aborts it
+  // `run` = the comparison's own controller: its progress must not re-open a popup the user closed or replaced.
+  const overlay = (title, html, run) => {
+    if (run?.signal.aborted) return;
+    if (!run) cmp?.abort(); // any other popup replaces the comparison's
+    const o = document.getElementById('adcs-overlay')?.style;
+    const keep = o?.width ? `width:${o.width};height:${o.height};top:${o.top};left:${o.left};` : ''; // inline size = the user resized it: keep size and place
+    // top/left, no transform: the resize handle then follows the mouse. Sticky header keeps × reachable while scrolling.
+    const el = put('adcs-overlay', 'top:0;left:0;box-sizing:border-box;padding:0;overflow:auto;resize:both;min-height:80px;min-width:min(280px,calc(100vw - 16px));' +
+      `max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);${keep}`,
+      '<div style="position:sticky;top:0;left:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #ddd">' +
+      `<b>${esc(title)}</b><button data-adcs="close">×</button></div><div style="padding:8px 12px 12px">${html}</div>`);
+    // shortcut: centered when the content changes, not when the window is resized.
+    if (!keep) { el.style.left = Math.max(8, (innerWidth - el.offsetWidth) / 2) + 'px'; el.style.top = Math.max(8, (innerHeight - el.offsetHeight) / 2) + 'px'; }
+  };
   const bar = () => {
     const to = siteOf(transferTarget(location.hostname, settings()));
     put('adcs-bar', 'bottom:16px;left:16px;',
@@ -382,13 +395,20 @@
   };
 
   // ---- Compare: read the other sites' product pages -------------------------
-  const gmGet = (url) => new Promise((ok, fail) =>
-    GM_xmlhttpRequest({ method: 'GET', url, timeout: 20000, onload: ok,
-      onerror: () => fail(new Error('network error')), ontimeout: () => fail(new Error('timeout')) }));
+  // Aborting `signal` aborts the request and rejects, so the pool's worker ends instead of hanging.
+  const gmGet = (url, signal) => {
+    let stop;
+    return new Promise((ok, fail) => {
+      const req = GM_xmlhttpRequest({ method: 'GET', url, timeout: 20000, onload: ok,
+        onerror: () => fail(new Error('network error')), ontimeout: () => fail(new Error('timeout')) });
+      stop = () => { req.abort(); fail(new Error('cancelled')); };
+      signal.addEventListener('abort', stop);
+    }).finally(() => signal.removeEventListener('abort', stop));
+  };
 
-  const otherPrice = async (it, host) => {
+  const otherPrice = async (it, host, signal) => {
     const url = swapHost(absUrl(it.path), host);
-    const r = await gmGet(url);
+    const r = await gmGet(url, signal);
     if (r.status !== 200) throw new Error('HTTP ' + r.status); // 403 = Cloudflare check, open that site once
     if (!(r.finalUrl || url).includes(it.id)) throw new Error('not sold there'); // redirected to home/category
     const doc = new DOMParser().parseFromString(r.responseText, 'text/html');
@@ -401,15 +421,17 @@
     const here = siteOf(location.hostname), items = scrapeCart();
     const others = SITES.filter((x) => settings().compare.includes(x.host) && x.host !== here.host);
     if (!others.length) return overlay('Compare prices', 'Tick at least one other country in Settings.');
+    cmp?.abort(); // a second click replaces the comparison still running
+    const run = (cmp = new AbortController());
     // One flat job list so up to PARALLEL reads run at once across all countries.
     const jobs = others.flatMap((o, k) => items.map((it, i) => ({ it, i, k, host: o.host })));
     const prices = others.map(() => []), e = others.map(() => []);
     let done = 0;
-    overlay('Compare prices', `Fetching 0/${jobs.length}…`);
+    overlay('Compare prices', `Fetching 0/${jobs.length}…`, run);
     await pool(jobs, PARALLEL, async ({ it, i, k, host }) => {
-      try { prices[k][i] = await otherPrice(it, host); e[k][i] = ''; } catch (err) { prices[k][i] = NaN; e[k][i] = err.message; }
-      overlay('Compare prices', `Fetched ${++done}/${jobs.length}…`);
-    });
+      try { prices[k][i] = await otherPrice(it, host, run.signal); e[k][i] = ''; } catch (err) { prices[k][i] = NaN; e[k][i] = err.message; }
+      overlay('Compare prices', `Fetched ${++done}/${jobs.length}…`, run);
+    }, run.signal);
     const cols = [{ ...here, prices: items.map((it) => it.price) }, ...others.map((o, k) => ({ ...o, prices: prices[k] }))];
     const errs = [[], ...e];
     const t = compareTable(items, cols);
@@ -426,14 +448,14 @@
       '<p><small>Green background = cheapest total among the columns in the same currency.</small></p>' +
       (short ? '<p>Articles without a price on a country are left out of the totals of every column in that currency (hover "n/a" for the reason).</p>' : '') +
       (mixed ? '<p><small>Columns in different currencies are not converted or compared: no exchange rate is used.</small></p>' : '') +
-      '<p><small>Item prices only. Shipping and VAT rules differ per country and are not included.</small></p>');
+      '<p><small>Item prices only. Shipping and VAT rules differ per country and are not included.</small></p>', run);
   };
 
   const ACTIONS = {
     transfer, compare, settings: showSettings,
     selectAll: () => setAll(true),
     deselectAll: () => setAll(false),
-    close: () => document.getElementById('adcs-overlay')?.remove(),
+    close: () => { cmp?.abort(); document.getElementById('adcs-overlay')?.remove(); },
     cancel: () => { GM_deleteValue(QUEUE); ACTIONS.close(); },
   };
   document.addEventListener('click', (e) => ACTIONS[e.target.dataset?.adcs]?.());
