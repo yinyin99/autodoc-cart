@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.1
+// @version      0.2.2
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -268,6 +268,11 @@
   };
 
   // ---- Settings (saved on every change) ------------------------------------
+  const setAll = (on) => {
+    const f = document.getElementById('adcs-form');
+    f.querySelectorAll('input[name=compare]').forEach((i) => { i.checked = on; });
+    f.dispatchEvent(new Event('change', { bubbles: true })); // runs the save listener below
+  };
   const showSettings = () => {
     const s = settings();
     const options = (sel) => SITES.map((x) => `<option value="${x.host}"${x.host === sel ? ' selected' : ''}>${esc(label(x))}</option>`).join('');
@@ -276,7 +281,8 @@
       `<p><label>Transfer cart to <select name="target">${options(s.target)}</select></label></p>` +
       `<p><label>When already on that site, transfer to <select name="home">${options(s.home)}</select></label></p>` +
       `<p><label><input type="checkbox" name="clear"${s.clear ? ' checked' : ''}> Empty the target cart before adding (deletes what is in it)</label></p>` +
-      '<p>Compare prices with <small>(one request per article and country)</small>:</p>' +
+      '<p>Compare prices with <small>(one request per article and country)</small>: ' +
+      '<button type="button" data-adcs="selectAll">Select all</button> <button type="button" data-adcs="deselectAll">Deselect all</button></p>' +
       '<div style="max-height:35vh;overflow:auto">' +
       SITES.map((x) => `<label style="display:block"><input type="checkbox" name="compare" value="${x.host}"${s.compare.includes(x.host) ? ' checked' : ''}> ${esc(label(x))} <small>${x.cur}</small></label>`).join('') +
       '</div><p><small>Changes are saved automatically.</small></p></form>');
@@ -425,6 +431,8 @@
 
   const ACTIONS = {
     transfer, compare, settings: showSettings,
+    selectAll: () => setAll(true),
+    deselectAll: () => setAll(false),
     close: () => document.getElementById('adcs-overlay')?.remove(),
     cancel: () => { GM_deleteValue(QUEUE); ACTIONS.close(); },
   };

@@ -32,7 +32,7 @@ Saved automatically (Tampermonkey storage, shared by all the sites); they apply 
 | Transfer cart to | Luxembourg (`www.autodoc.lu`) | Target of **Transfer cart**. |
 | When already on that site, transfer to | France (`www.auto-doc.fr`) | Where the transfer goes from the target site itself, so the same button also works the other way round. If it equals the site you are on, the button explains what to change. |
 | Empty the target cart before adding | **on** | The target site's cart is emptied (all its articles are removed) before the articles are added, so the target ends up as an exact copy. Turn it **off** to add on top of what is already there. |
-| Compare prices with | France + Luxembourg | Every ticked country costs one request per cart article, so only two are on by default. This site is always shown first, whether ticked or not. |
+| Compare prices with | France + Luxembourg | Every ticked country costs one request per cart article, so only two are on by default. This site is always shown first, whether ticked or not. The **Select all** / **Deselect all** buttons above the list tick or untick every country at once. |
 
 **Empty the target cart is on by default**: the target cart is the one being rebuilt, but whatever is in it when you press Transfer is deleted, not just overwritten. Only the articles are removed (coupons, "Commande Sécurisée" and addresses are left alone). If emptying fails, the transfer stops and adds nothing; the cart may then be partly emptied.
 
