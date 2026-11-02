@@ -21,7 +21,7 @@ No build step, no dependencies: one `.user.js` file.
 
 1. Fill your cart on one site and open its cart page.
 2. **Transfer cart**: a new tab opens on the target site at the product page of your first article. The script (optionally empties that site's cart, then) adds each article through the site's own add-to-cart request, shows progress, lists anything that could not be added, then opens the cart.
-3. **Compare prices**: the script reads each product page on the enabled countries and shows a table: one column per country (this site first), unit price per article with the difference to this site, and totals. The cheapest total gets a green background.
+3. **Compare prices**: the script reads each product page on the enabled countries, 4 requests at a time (a progress counter is shown) and shows a table: one column per country (this site first), unit price per article with the difference to this site, and totals. The cheapest total gets a green background.
 
 ## Settings
 
@@ -38,11 +38,50 @@ Saved automatically (Tampermonkey storage, shared by all the sites); they apply 
 
 ## Countries
 
-Germany, Austria, Switzerland (DE, FR), Luxembourg, Belgium (NL, FR), France (+ EN), Netherlands (+ EN), Italy (+ EN), Spain, Portugal, United Kingdom, Ireland, Denmark, Norway, Sweden, Finland, Poland, Czech Republic, Slovakia, Slovenia, Hungary, Romania, Bulgaria, Greece, Estonia, Latvia, Lithuania, International (EN), Brazil.
+| Country | Site | Currency |
+|---|---|---|
+| Germany | www.autodoc.de | EUR |
+| Austria | www.auto-doc.at | EUR |
+| Switzerland (DE) | www.auto-doc.ch | CHF |
+| Switzerland (FR) | www.autodoc24.ch | CHF |
+| Luxembourg | www.autodoc.lu | EUR |
+| Belgium (NL) | www.autodoc.be | EUR |
+| Belgium (FR) | www.auto-doc.be | EUR |
+| France | www.auto-doc.fr | EUR |
+| France (EN) | www.autodoc24.fr | EUR |
+| Netherlands | www.autodoc.nl | EUR |
+| Netherlands (EN) | www.autodoc24.nl | EUR |
+| Italy | www.auto-doc.it | EUR |
+| Italy (EN) | www.autodoc24.it | EUR |
+| Spain | www.autodoc.es | EUR |
+| Portugal | www.auto-doc.pt | EUR |
+| United Kingdom | www.autodoc.co.uk | GBP |
+| Ireland | www.auto-doc.ie | EUR |
+| Denmark | www.autodoc.dk | DKK |
+| Norway | www.autodoc.co.no | NOK |
+| Sweden | www.autodoc.se | SEK |
+| Finland | www.autodoc.fi | EUR |
+| Poland | www.autodoc.pl | PLN |
+| Czech Republic | www.autodoc.cz | CZK |
+| Slovakia | www.autodoc.sk | EUR |
+| Slovenia | www.autodoc.si | EUR |
+| Hungary | www.autodoc.hu | HUF |
+| Romania | www.autodoc24.ro | RON |
+| Bulgaria | www.autodoc.bg | EUR |
+| Greece | www.autodoc.gr | EUR |
+| Estonia | www.autodoc.ee | EUR |
+| Latvia | www.autodoc.lv | EUR |
+| Lithuania | www.autodoc.lt | EUR |
+| International (EN) | www.autodoc.parts | EUR |
+| Brazil | www.autopecas.br.com | BRL |
 
 The list (`SITES` at the top of the script: country, host, currency) is the only thing to edit to add or drop a site. The `@match` and `@connect` header lines must list the same hosts (Tampermonkey requires it); `node test.js` checks that.
 
 **Currencies.** Prices are shown in each site's own currency and are **never converted**: the script calls no exchange-rate service. Totals, differences and the green "cheapest" highlight only compare columns in the same currency (all euro sites together, the two Swiss sites together, ...). A column in another currency than this site's shows its own total with no difference to this site. A country where an article has no price is left out of the totals of every column in that currency, so the columns stay comparable (hover "n/a" for the reason).
+
+## Updates
+
+The header has `@version`, `@updateURL` and `@downloadURL` pointing at this repo. Tampermonkey checks them periodically and updates when `@version` is higher; to force it, use **Check for userscript updates** in the Tampermonkey menu.
 
 ## How it works (and why)
 
@@ -55,6 +94,8 @@ The list (`SITES` at the top of the script: country, host, currency) is the only
 ## Limitations
 
 - With **Empty the target cart** off, quantities are **added** to whatever is already in the target cart.
+- Transfer and emptying the cart were verified live only on **fr, lu and de**. The other sites are assumed to run the same platform (same product URLs, same cart requests) but are untested; the price comparison works wherever the product page shows a price.
+- Articles are added one after the other (parallel cart updates race on the server and drop articles); only price reads run in parallel.
 - Only the articles and quantities are copied. Vehicle selection, "Commande Sécurisée" and other services, coupons, and addresses are not.
 - An article that does not exist on the other site is reported as not added; it is not substituted. With emptying on, the old target cart is already gone by then.
 - **Prices are shown VAT included and per country** (e.g. France 20 %, Luxembourg 17 % at the time of writing). Shipping is **not** compared (it depends on destination, weight and cart total). Check the final total on the cart page before ordering.

@@ -45,11 +45,7 @@ git grep -nIi -e "C:\\\\Users" -e "/home/" -e "/Users/" -e "@gmail" -e "@outlook
 
 (use `grep -rnIi ... --exclude-dir=.git .` if nothing is committed yet)
 
-Expected hits: only the words "token"/"cookie" in README/script comments about Turnstile and CSRF. No real names, usernames, paths, emails, order numbers, cart contents or IP addresses. Replace `YOUR_GITHUB_USER` in the script header and README with your pseudonym (the same string, everywhere):
-
-```
-grep -rn YOUR_GITHUB_USER .      # find them all, then edit
-```
+Expected hits: only the words "token"/"cookie" in README/script comments about Turnstile and CSRF. No real names, usernames, paths, emails, order numbers, cart contents or IP addresses. The `YOUR_GITHUB_USER` placeholder was replaced with the account name (`yinyin99`) in the script header and README.
 
 The license holder is already generic ("autodoc-cart contributors"); keep it that way.
 
