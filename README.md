@@ -20,6 +20,8 @@ No build step, no dependencies: one `.user.js` file.
 ## How to use
 
 1. **Open your cart** on an Autodoc site, e.g. `https://www.auto-doc.fr/basket`. After a few seconds three buttons appear at the bottom-left of the page: **Transfer cart → …**, **Compare prices** and **Settings**. (They only appear on the cart page, and only when it contains articles.)
+
+   ![The auto-doc.fr cart page with three articles; at the bottom-left, the buttons "Transfer cart → Luxembourg", "Compare prices" and "Settings"](docs/cart-buttons.png)
 2. **Compare prices.** Click it and wait: a counter ("Fetched 3/8…") shows the script reading the product pages of the other countries, 4 at a time. Then a table shows:
    - one row per article (name, quantity) and one column per country, **this site first**; the other columns also show the difference to this site (green = cheaper, red = more expensive);
    - the **Total** row; the cheapest total has a **green background**;
@@ -27,12 +29,16 @@ No build step, no dependencies: one `.user.js` file.
    - **n/a** where an article has no price (not sold there, site blocked the request…): hover it to see why. Such an article is left out of the totals of the columns compared with it.
 
    Click **×** to close the table; closing it while it is still loading stops the comparison (click **Compare prices** again to restart). Prices are per unit, VAT included, shipping not included.
+
+   ![Compare prices table for three articles: France, Germany, Switzerland (DE) in CHF with its price converted to euros after "≈", and Luxembourg; the cheapest total (Germany) has a green background](docs/compare-prices.png)
 3. **Settings.** Everything is saved as soon as you change it:
    - **Transfer cart to**: the country the cart is copied to (default Luxembourg).
    - **When already on that site, transfer to**: where the button sends you when you are on the target site itself (default France), so it also works the other way round.
    - **Empty the target cart before adding** (on by default): the articles already in the target cart are deleted first, so it ends up an exact copy of yours. Turn it off to add on top of what is there.
    - **Compare prices with**: tick the countries to compare. Each costs one request per article, so only France and Luxembourg are ticked by default. **Select all** / **Deselect all** tick or untick every country at once.
    - **Resizable windows**: lets you resize the popups by dragging their bottom-right corner (off by default). You can always move a popup by dragging its title bar.
+
+   ![The Settings panel: transfer target, empty-the-target-cart and resizable-windows checkboxes, Select all / Deselect all buttons and the list of countries to compare](docs/settings.png)
 4. **Transfer cart.** Click **Transfer cart → (country)**. A new tab opens on a product page of the target site (your first article): leave it open. It shows its progress ("Adding 2/5…"), then opens the target cart. If some articles could not be added, they are listed instead. Check the quantities and the final total on the cart page before you order. (With an empty cart the three buttons do not appear: there is nothing to transfer.)
 5. **Updating.** Tampermonkey checks for new versions by itself. To force it, open the Tampermonkey menu → **Check for userscript updates**.
 
