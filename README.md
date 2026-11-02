@@ -17,13 +17,26 @@ No build step, no dependencies: one `.user.js` file.
    [`https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js`](https://raw.githubusercontent.com/yinyin99/autodoc-cart/main/autodoc-cart.user.js)
 3. Tampermonkey asks to allow cross-site requests to the Autodoc sites listed in the script header. Allow them (needed for the price comparison).
 
-## Usage
+## How to use
 
-1. Fill your cart on one site and open its cart page.
-2. **Transfer cart**: a new tab opens on the target site at the product page of your first article. The script (optionally empties that site's cart, then) adds each article through the site's own add-to-cart request, shows progress, lists anything that could not be added, then opens the cart.
-3. **Compare prices**: the script reads each product page on the enabled countries, 4 requests at a time (a progress counter is shown) and shows a table: one column per country (this site first), unit price per article with the difference to this site, and totals. The cheapest total gets a green background. Closing the popup (×) while it is still fetching cancels the comparison: running requests are aborted and no new ones start; clicking **Compare prices** again restarts it.
+1. **Open your cart** on an Autodoc site, e.g. `https://www.auto-doc.fr/basket`. After a few seconds three buttons appear at the bottom-left of the page: **Transfer cart → …**, **Compare prices** and **Settings**. (They only appear on the cart page, and only when it contains articles.)
+2. **Compare prices.** Click it and wait: a counter ("Fetched 3/8…") shows the script reading the product pages of the other countries, 4 at a time. Then a table shows:
+   - one row per article (name, quantity) and one column per country, **this site first**; the other columns also show the difference to this site (green = cheaper, red = more expensive);
+   - the **Total** row; the cheapest total has a **green background**;
+   - for countries that use another currency (e.g. CHF, GBP, SEK), their own price plus **≈** the same amount converted to this site's currency, so everything can be compared;
+   - **n/a** where an article has no price (not sold there, site blocked the request…): hover it to see why. Such an article is left out of the totals of the columns compared with it.
 
-Popups can be moved by dragging their title bar and, when **Resizable windows** is enabled in Settings, resized by dragging the bottom-right corner; they fit small screens (the table scrolls inside them) and keep their title bar with the × button visible while you scroll.
+   Click **×** to close the table; closing it while it is still loading stops the comparison (click **Compare prices** again to restart). Prices are per unit, VAT included, shipping not included.
+3. **Settings.** Everything is saved as soon as you change it:
+   - **Transfer cart to**: the country the cart is copied to (default Luxembourg).
+   - **When already on that site, transfer to**: where the button sends you when you are on the target site itself (default France), so it also works the other way round.
+   - **Empty the target cart before adding** (on by default): the articles already in the target cart are deleted first, so it ends up an exact copy of yours. Turn it off to add on top of what is there.
+   - **Compare prices with**: tick the countries to compare. Each costs one request per article, so only France and Luxembourg are ticked by default. **Select all** / **Deselect all** tick or untick every country at once.
+   - **Resizable windows**: lets you resize the popups by dragging their bottom-right corner (off by default). You can always move a popup by dragging its title bar.
+4. **Transfer cart.** Click **Transfer cart → (country)**. A new tab opens on a product page of the target site (your first article): leave it open. It shows its progress ("Adding 2/5…"), then opens the target cart. If some articles could not be added, they are listed instead. Check the quantities and the final total on the cart page before you order. (With an empty cart the three buttons do not appear: there is nothing to transfer.)
+5. **Updating.** Tampermonkey checks for new versions by itself. To force it, open the Tampermonkey menu → **Check for userscript updates**.
+
+Popups fit small screens (the table scrolls inside them) and keep their title bar with the × button visible while you scroll.
 
 ## Settings
 
