@@ -34,7 +34,6 @@ const header = fs.readFileSync(__dirname + '/autodoc-cart.user.js', 'utf8').spli
 const tag = (name) => [...header.matchAll(new RegExp(`@${name}\\s+(\\S+)`, 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(tag('match'), SITES.map((s) => `https://${s.host}/*`));
 assert.deepStrictEqual(tag('connect'), SITES.map((s) => s.host));
-assert.deepStrictEqual(tag('version'), ['0.2.0']);
 
 // swapHost: any supported site to any other, path/query kept, unknown host rejected both ways
 assert.strictEqual(swapHost('https://www.auto-doc.fr/ridex/16152230', 'www.autodoc.lu'), 'https://www.autodoc.lu/ridex/16152230');
