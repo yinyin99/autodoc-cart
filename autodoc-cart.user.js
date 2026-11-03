@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Autodoc cart transfer & price compare
 // @namespace    https://github.com/yinyin99/autodoc-cart
-// @version      0.2.7
+// @version      0.2.8
 // @author       yinyin99
 // @description  Rebuild your Autodoc cart on another Autodoc country site and compare item prices across countries.
 // @license      MIT
@@ -271,7 +271,7 @@
     'border:1px solid #888;border-radius:8px;box-shadow:0 4px 20px #0006;padding:12px;';
   const put = (id, style, html) => {
     let el = document.getElementById(id);
-    if (!el) { el = document.body.appendChild(document.createElement('div')); el.id = id; }
+    if (!el) { el = document.body.appendChild(document.createElement('div')); el.id = id; el.translate = false; el.className = 'notranslate'; } // Chrome Translate would wrap our text in <font> and rewrite it
     el.style.cssText = BOX + style;
     el.innerHTML = html;
     return el;
@@ -513,7 +513,8 @@
     close: () => { cmp?.abort(); document.getElementById('adcs-overlay')?.remove(); },
     cancel: () => { GM_deleteValue(QUEUE); ACTIONS.close(); },
   };
-  document.addEventListener('click', (e) => ACTIONS[e.target.dataset?.adcs]?.());
+  // closest(): Chrome Translate wraps button text in <font>, which then is e.target.
+  document.addEventListener('click', (e) => ACTIONS[e.target.closest?.('[data-adcs]')?.dataset.adcs]?.());
 
   consume();
   if (CART_PATH.test(location.pathname))

@@ -42,6 +42,8 @@ Rates are fetched from `api.frankfurter.dev` at most once a day and cached for 2
 - Recent Chrome and Edge versions may require turning on developer mode on the extensions page, or **Allow User Scripts** in the Tampermonkey extension details. Then reload the page.
 - The site may have changed its layout. Check the selectors at the top of the script.
 
+**Chrome page translation (Google Translate) is on.** The script's own buttons and popups are marked `translate="no"`, so they stay in English and keep working. Only the shop's own text, such as article names, is translated.
+
 **Some articles were not added.** They are listed after the transfer. They are probably not sold on the target site.
 
 **Updates.** The script header has `@version`, `@updateURL` and `@downloadURL` pointing at this repository. Tampermonkey checks them regularly and updates when `@version` is higher. To force it, open the Tampermonkey menu and choose **Check for userscript updates**.
